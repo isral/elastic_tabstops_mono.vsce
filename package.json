@@ -2,7 +2,7 @@
 	"name": "elastic-tabstops-mono",
 	"displayName": "Elastic Tabstops Mono",
 	"description": "A better way to indent and align code.",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"icon": "icon.png",
 	"license": "MIT",
 	"repository": {
@@ -28,25 +28,35 @@
 					"elasticTabstopsMono.enable": {
 						"type": "boolean",
 						"default": true,
-						"description": "Enable/disable Elastic Tabstops Mono."
+						"description": "Enable Elastic Tabstops Mono.",
+						"order": 0
+					},
+					"elasticTabstopsMono.fixedIndentation": {
+						"type": "boolean",
+						"default": false,
+						"description": "Fixed leading tabstops.",
+						"order": 1
 					},
 					"elasticTabstopsMono.timeout": {
 						"type": "integer",
 						"minimum": 5,
-						"default": 500,
-						"description": "Timeout in milliseconds before aligning."
+						"default": 25,
+						"description": "Timeout in milliseconds before aligning.",
+						"order": 2
 					},
 					"elasticTabstopsMono.maxLineCount": {
 						"type": "integer",
 						"minimum": 2,
 						"default": 4096,
-						"description": "File with line count above this will not be aligned for performance reasons."
+						"description": "File with line count above this will not be aligned for performance reasons.",
+						"order": 3
 					},
 					"elasticTabstopsMono.maxLineLength": {
 						"type": "integer",
 						"minimum": 80,
 						"default": 255,
-						"description": "Line length above this will not be aligned for performance reasons."
+						"description": "Line length above this will not be aligned for performance reasons.",
+						"order": 4
 					}
 				}
 			}

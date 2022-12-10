@@ -2,11 +2,13 @@ import * as v from 'vscode'
 
 const configuration = "elasticTabstopsMono"
 const cfgEnable = "enable"
+const cfgFixIndent = "fixedIndentation"
 const cfgTimeout = "timeout"
 const cfgMaxLineCount = "maxLineCount"
 const cfgMaxLineLength = "maxLineLength"
+const defaultFixIndent = false
 const minTimeout = 5
-const defaultTimeout = 500
+const defaultTimeout = 25
 const minMaxLineCount = 2
 const defaultMaxLineCount = 4096
 const minMaxLineLength = 80
@@ -14,6 +16,7 @@ const defaultMaxLineLength = 255
 const lcmTab = 5 * 6 * 7 * 8
 
 let isEnable = false
+let isFixIndent = defaultFixIndent
 let timeout = defaultTimeout
 let maxLineCount = defaultMaxLineCount
 let maxLineLength = defaultMaxLineLength
@@ -35,21 +38,24 @@ export function deactivate() {
 
 function onDidChangeConfiguration() {
 	const config = v.workspace.getConfiguration(configuration)
-	const oldIsEnable = isEnable
+	const oldEnable = isEnable
 	isEnable = config.get<boolean>(cfgEnable) ?? false
+	const oldFixIndent = isFixIndent
+	isFixIndent = config.get<boolean>(cfgFixIndent) ?? defaultFixIndent
 	timeout = Math.max(minTimeout, config.get<number>(cfgTimeout) ?? defaultTimeout)
 	const oldMaxLineCount = maxLineCount
 	maxLineCount = Math.max(minMaxLineCount, config.get<number>(cfgMaxLineCount) ?? defaultMaxLineCount)
 	const oldMaxLineLength = maxLineLength
 	maxLineLength = Math.max(minMaxLineLength, config.get<number>(cfgMaxLineLength) ?? defaultMaxLineLength)
-	if (isEnable !== oldIsEnable) {
+	if (isEnable !== oldEnable) {
 		if (isEnable) {
 			enable()
 		} else {
 			disable()
 		}
 	} else if (isEnable) {
-		if ((maxLineCount !== oldMaxLineCount) || (maxLineLength !== oldMaxLineLength)) {
+		if ((isFixIndent !== oldFixIndent) ||
+			(maxLineCount !== oldMaxLineCount) || (maxLineLength !== oldMaxLineLength)) {
 			activeEditor = v.window.activeTextEditor
 			if (activeEditor) {
 				triggerUpdateDecorations()
@@ -142,8 +148,8 @@ class Decoration {
 interface IField {
 	start: number
 	length: number
+	tabPos: number
 	tabSize: number
-	pad: number
 }
 
 class Editor {
@@ -164,16 +170,24 @@ class Editor {
 			const line = document.lineAt(lineNumber).text
 			if (line.length <= maxLineLength) {
 				const fields: IField[] = []
-				for (let i = 0, col = 0, start = 0; i <= line.length; ++i, ++col) {
+				let i = 0, col = 0
+				if (isFixIndent) {
+					while (line[i] === '\t') {
+						++i
+						col += tabMaxSize
+					}
+				}
+				for (let start = 0, colStart = 0; i <= line.length; ++i, ++col) {
 					if ((line[i] === '\t') || (i >= line.length)) {
+						const length = col - colStart
 						let tabSize = 0
 						while ((col + 1) % tabMaxSize !== 0) {
 							++col
 							++tabSize
 						}
-						const length = i - start
-						fields.push({ start, length, tabSize, pad: 0 })
+						fields.push({ start, length, tabPos: i, tabSize })
 						start = i + 1
+						colStart = col + 1
 					}
 				}
 				this.fieldss.push(fields.length > 1 ? fields : [])
@@ -226,16 +240,16 @@ class Editor {
 		for (let i = lineStart; i < lineEnd; ++i) {
 			const c = this.fieldss[i][level]
 			if (c.length + c.tabSize !== maxLength) {
-				c.pad = maxLength - c.length - c.tabSize
-				const key = (c.pad * lcmTab) / (c.tabSize + 1)
+				const pad = maxLength - c.length - c.tabSize
+				const key = ((pad * lcmTab) / (c.tabSize + 1)) | 0
 				if (!this.decorations[key]) {
 					this.decorations[key] = new Decoration(v.window.createTextEditorDecorationType({
 						letterSpacing: `${key / lcmTab}ch`,
 						rangeBehavior: v.DecorationRangeBehavior.ClosedClosed
 					}))
 				}
-				const start = new v.Position(i - 1, c.start + c.length)
-				const end = new v.Position(i - 1, c.start + c.length + 1)
+				const start = new v.Position(i - 1, c.tabPos)
+				const end = new v.Position(i - 1, c.tabPos + 1)
 				this.decorations[key]!.ranges.push(new v.Range(start, end))
 			}
 		}
